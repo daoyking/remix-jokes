@@ -1,10 +1,19 @@
-import type { ActionArgs } from "@remix-run/node";
-import { redirect } from "@remix-run/node";
-import { useActionData } from "@remix-run/react";
+import type { ActionArgs, LoaderArgs } from "@remix-run/node";
+import { redirect, json } from "@remix-run/node";
+import { useActionData, isRouteErrorResponse, useRouteError, Link, Form, useNavigation } from "@remix-run/react";
 
+import { JokeDisplay } from "~/components/joke";
 import { db } from "~/utils/db.server";
 import { badRequest } from "~/utils/request.server";
-import { requireUserId } from "~/utils/session.server";
+import { requireUserId, getUserId } from "~/utils/session.server";
+
+export const loader = async ({ request }: LoaderArgs) => {
+    const userId = await getUserId(request);
+    if (!userId) {
+        throw new Response("Unauthorized", { status: 401 });
+    }
+    return json({});
+};
 
 function validateJokeContent(content: string) {
     if (content.length < 10) {
@@ -50,11 +59,25 @@ export const action = async ({ request }: ActionArgs) => {
 
 export default function NewJokeRoute() {
     const actionData = useActionData<typeof action>();
+    const navigation = useNavigation();
+
+    if (navigation.formData) {
+        const content = navigation.formData.get("content");
+        const name = navigation.formData.get("name");
+        if (
+            typeof content === "string" &&
+            typeof name === "string" &&
+            !validateJokeContent(content) &&
+            !validateJokeName(name)
+        ) {
+            return <JokeDisplay canDelete={false} isOwner={true} joke={{ name, content }} />;
+        }
+    }
 
     return (
         <div>
             <p>Add your own hilarious joke</p>
-            <form method="post">
+            <Form method="post">
                 <div>
                     <label>
                         Name:{" "}
@@ -98,7 +121,23 @@ export default function NewJokeRoute() {
                         Add
                     </button>
                 </div>
-            </form>
+            </Form>
         </div>
     );
+}
+
+export function ErrorBoundary() {
+    const error = useRouteError();
+    console.error(error);
+
+    if (isRouteErrorResponse(error) && error.status === 401) {
+        return (
+            <div className="error-container">
+                <p>You must be logged in to create a joke.</p>
+                <Link to="/login">Login</Link>
+            </div>
+        );
+    }
+
+    return <div className="error-container">Something unexpected went wrong. Sorry about that.</div>;
 }

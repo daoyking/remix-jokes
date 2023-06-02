@@ -16,12 +16,12 @@ export async function register({ password, username }: LoginForm) {
 }
 
 export async function login({ password, username }: LoginForm) {
-	// const user = await db.user.findUnique({
-	// 	where: { username },
-	// });
-	const user = await db.user.findFirst({
+	const user = await db.user.findUnique({
 		where: { username },
 	});
+	// const user = await db.user.findFirst({
+	// 	where: { username },
+	// });
 	if (!user) {
 		return null;
 	}
